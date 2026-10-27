@@ -89,7 +89,7 @@ new #[Title('Security settings')] class extends Component {
     }
 
     /**
-     * Load the user's passkeys.
+     * Load the user'authentication-and-registration.md passkeys.
      */
     public function loadPasskeys(): void
     {
