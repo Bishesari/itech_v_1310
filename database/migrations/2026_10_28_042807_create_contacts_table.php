@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\ContactType;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -11,9 +12,10 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('mobiles', function (Blueprint $table) {
+        Schema::create('contacts', function (Blueprint $table) {
             $table->id();
-            $table->char('number', 11)->unique();
+            $table->string('type', 15)->default(ContactType::Mobile->value);
+            $table->string('value', 50)->unique();
             $table->timestamps();
         });
     }
@@ -23,6 +25,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('mobiles');
+        Schema::dropIfExists('contacts');
     }
 };

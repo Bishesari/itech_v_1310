@@ -2,20 +2,30 @@
 
 namespace App\Models;
 
+use App\Enums\Nationality;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
-#[Fillable(['nationality_type', 'identity', 'gender', 'first_name_fa', 'last_name_fa', 'nickname'])]
+#[Fillable(['nationality', 'identity', 'gender', 'first_name_fa', 'last_name_fa', 'nickname'])]
 
 class Person extends Model
 {
-    public function mobiles(): BelongsToMany
+    protected function casts(): array
     {
-        return $this->belongsToMany(Mobile::class)
+        return [
+            'nationality' => Nationality::class,
+        ];
+    }
+
+    public function contacts(): BelongsToMany
+    {
+        return $this->belongsToMany(Contact::class)
+            ->withPivot(['verified', 'active'])
             ->withTimestamps();
     }
+
 
     public function user(): HasOne
     {

@@ -15,7 +15,7 @@ return new class extends Migration
         Schema::create('people', function (Blueprint $table) {
             $table->id();
 
-            $table->unsignedTinyInteger('nationality_type')
+            $table->unsignedTinyInteger('nationality')
                 ->default(Nationality::Iranian->value);
 
             $table->string('identity', 20)->unique();
