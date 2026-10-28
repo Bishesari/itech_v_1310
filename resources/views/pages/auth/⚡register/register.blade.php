@@ -1,4 +1,4 @@
-<div class="w-88">
+<div class="w-85">
     <flux:card variant="soft" size="sm">
         <flux:card.header>
             <flux:card.heading class="text-center">{{__('فرم ثبت نام')}}</flux:card.heading>
@@ -39,12 +39,19 @@
                     {{__('ثبت نام')}}
                 </flux:button>
 
-                <flux:text class="text-center mt-5">
-                    <span>{{ __('حساب کاربری داشته اید؟') }}</span>
-                    <flux:link :href="route('login')" wire:navigate class="mr-2 ">
-                        <span>{{ __('وارد شوید!') }}</span>
-                    </flux:link>
-                </flux:text>
+                <div class="text-sm text-zinc-600 dark:text-zinc-400 mt-5 flex justify-between">
+                    <span class="pt-1.5 mr-2">{{ __('حساب کاربری داشته اید؟') }}</span>
+
+                    <flux:button :href="route('login')" wire:navigate variant="ghost" icon:trailing="arrow-left-end-on-rectangle"
+                                 size="sm" class="cursor-pointer"
+                                 x-data="{ loading: false }"
+                                 @click="loading = true"
+                    >
+                        <span x-show="!loading">{{ __('وارد شوید!') }}</span>
+                        <flux:icon.loading x-show="loading" class="inline size-4 text-yellow-500 ml-5"/>
+                    </flux:button>
+                </div>
+
             </flux:card.footer>
         </form>
     </flux:card>

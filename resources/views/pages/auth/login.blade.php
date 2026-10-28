@@ -64,12 +64,12 @@
                     <div class="text-sm text-zinc-600 dark:text-zinc-400 mt-5 flex justify-between">
                         <span class="pt-1.5 mr-2">{{ __('حساب کاربری ندارید؟') }}</span>
 
-                        <flux:button :href="route('register')" wire:navigate variant="ghost" icon:trailing="arrow-up-left"
+                        <flux:button :href="route('register')" wire:navigate variant="ghost" icon:trailing="arrow-up-tray"
                                      size="sm" class="cursor-pointer"
                                      x-data="{ loading: false }"
                                      @click="loading = true"
                         >
-                            <span x-show="!loading">{{ __('ثبت نام کنید') }} </span>
+                            <span x-show="!loading">{{ __('ثبت نام کنید!') }} </span>
                             <flux:icon.loading x-show="loading" class="inline size-4 text-yellow-500 ml-5"/>
                         </flux:button>
                     </div>
