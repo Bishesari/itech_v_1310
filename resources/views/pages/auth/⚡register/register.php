@@ -7,11 +7,11 @@ use App\Models\Contact;
 use App\Models\Person;
 use App\Models\User;
 use App\Support\Digits;
+use App\Support\PasswordGenerator;
 use Flux\Flux;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
-use Illuminate\Support\Str;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
@@ -34,10 +34,14 @@ class extends Component
 
     public int $otpExpiresAt = 0;
 
+    public bool $mobileAlreadyRegistered = false;
+
     public function submit(): void
     {
         $this->mobile = Digits::toEnglish($this->mobile);
         $this->verifiedMobile = null;
+
+        $this->mobileAlreadyRegistered = false;
 
         $this->validateOnly('mobile');
 
@@ -79,7 +83,7 @@ class extends Component
         }
 
         // محدودیت درخواست برای هر IP.
-        if (RateLimiter::tooManyAttempts($ipKey, 20)) {
+        if (RateLimiter::tooManyAttempts($ipKey, 7)) {
             $seconds = RateLimiter::availableIn($ipKey);
 
             $this->addError(
@@ -98,10 +102,7 @@ class extends Component
             ->exists();
 
         if ($contactExists) {
-            $this->addError(
-                'mobile',
-                'این شماره موبایل قبلاً در سیستم ثبت شده است.',
-            );
+            $this->mobileAlreadyRegistered = true;
 
             return;
         }
@@ -237,7 +238,6 @@ class extends Component
         Flux::modal('verify-mobile')->close();
     }
 
-
     public function register(): void
     {
         $this->mobile = Digits::toEnglish($this->mobile);
@@ -275,7 +275,7 @@ class extends Component
             return;
         }
 
-        $temporaryPassword = Str::random(5);
+        $temporaryPassword = PasswordGenerator::generate();
 
         $user = DB::transaction(function () use ($temporaryPassword) {
             $person = Person::query()->create([]);

@@ -13,6 +13,25 @@
                               :attributes="$attributes->merge(['maxlength' => 11, 'inputmode' => 'numeric'])"
                               class="tracking-widest font-semibold text-lg!" autofocus
                 />
+
+                @if ($mobileAlreadyRegistered)
+                    <flux:callout icon="information-circle" color="purple">
+                        <flux:callout.heading>
+                            {{ __('این شماره قبلاً ثبت‌نام کرده است!') }}
+                        </flux:callout.heading>
+
+                        <flux:callout.text class="font-light">
+                            {{ __('برای ورود به حساب کاربری خود، از لینک زیر استفاده کنید.') }}
+                            <div class="text-left">
+                                <flux:callout.link href="{{ route('login') }}">
+                                    {{ __('ورود به حساب کاربری') }}
+                                </flux:callout.link></div>
+
+                        </flux:callout.text>
+
+
+                    </flux:callout>
+                @endif
             </flux:card.body>
 
             <flux:card.footer>
