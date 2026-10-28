@@ -15,10 +15,9 @@ return new class extends Migration
         Schema::create('people', function (Blueprint $table) {
             $table->id();
 
-            $table->unsignedTinyInteger('nationality')
-                ->default(Nationality::Iranian->value);
+            $table->unsignedTinyInteger('nationality')->nullable();
 
-            $table->string('identity', 20)->unique();
+            $table->string('identity', 20)->nullable()->unique();
 
             $table->boolean('gender')->nullable();
             $table->string('first_name_fa', 30)->nullable();

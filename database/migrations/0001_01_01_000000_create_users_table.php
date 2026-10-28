@@ -20,9 +20,9 @@ return new class extends Migration
             // Authentication
             $table->string('username', 25)->unique();
             $table->string('password');
-
-            $table->rememberToken();
+            $table->boolean('password_is_temporary')->default(false);
             $table->timestamp('last_login_at')->nullable();
+            $table->rememberToken();
             $table->timestamps();
         });
 
