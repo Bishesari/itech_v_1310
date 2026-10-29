@@ -21,6 +21,7 @@ return new class extends Migration
             $table->string('username', 25)->unique();
             $table->string('password');
             $table->boolean('password_is_temporary')->default(false);
+            $table->boolean('is_active')->default(false);
             $table->timestamp('last_login_at')->nullable();
             $table->rememberToken();
             $table->timestamps();

@@ -295,6 +295,7 @@ class extends Component
                 'username' => $this->verifiedMobile,
                 'password' => $temporaryPassword,
                 'password_is_temporary' => true,
+                'is_active' => true,
             ]);
         });
 
