@@ -6,6 +6,7 @@ use App\Enums\Nationality;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 #[Fillable(['nationality', 'identity', 'gender', 'first_name_fa', 'last_name_fa', 'nickname'])]
@@ -19,7 +20,6 @@ class Person extends Model
         ];
     }
 
-    // Person.php
     public function contacts(): BelongsToMany
     {
         return $this->belongsToMany(Contact::class)
@@ -28,10 +28,19 @@ class Person extends Model
             ->withTimestamps();
     }
 
-
-
     public function user(): HasOne
     {
         return $this->hasOne(User::class);
     }
+
+    public function memberships(): HasMany
+    {
+        return $this->hasMany(Membership::class);
+    }
+
+    public function roleAssignments(): HasMany
+    {
+        return $this->hasMany(RoleAssignment::class);
+    }
+
 }
