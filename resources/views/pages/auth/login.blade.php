@@ -34,7 +34,7 @@
                         </flux:field>
 
 
-                        <flux:link class="text-sm" :href="route('dashboard')" wire:navigate tabindex="-1"
+                        <flux:link class="text-sm" :href="route('reset-password')" wire:navigate tabindex="-1"
                                    x-data="{ loading: false }"
                                    @click="loading = true"
                         >
@@ -57,8 +57,6 @@
                             </span>
                         </flux:button>
                     </div>
-
-
 
 
                     <div class="text-sm text-zinc-600 dark:text-zinc-400 mt-5 flex justify-between">
