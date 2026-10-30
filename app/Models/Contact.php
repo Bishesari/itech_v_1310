@@ -17,10 +17,13 @@ class Contact extends Model
         ];
     }
 
+    // Contact.php
     public function people(): BelongsToMany
     {
         return $this->belongsToMany(Person::class)
+            ->using(ContactPerson::class)
             ->withPivot(['verified', 'active'])
             ->withTimestamps();
     }
+
 }

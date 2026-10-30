@@ -2,16 +2,17 @@
 
 use App\Contracts\SmsGateway;
 use App\Enums\ContactType;
+use App\Enums\OtpChannel;
+use App\Enums\OtpPurpose;
 use App\Exceptions\Verification\SmsDeliveryException;
 use App\Models\Contact;
 use App\Models\Person;
 use App\Models\User;
+use App\Services\OtpService;
 use App\Support\Digits;
 use App\Support\PasswordGenerator;
+use Carbon\Carbon;
 use Flux\Flux;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\RateLimiter;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
@@ -29,72 +30,21 @@ class extends Component
     #[Locked]
     public ?string $verifiedMobile = null;
 
-    #[Validate('required|digits:6')]
-    public string $verificationCode = '';
+    public bool $mobileAlreadyRegistered = false;
 
     public int $otpExpiresAt = 0;
 
-    public bool $mobileAlreadyRegistered = false;
+    #[Validate('required|digits:6')]
+    public string $verificationCode = '';
 
     public function submit(): void
     {
         $this->mobile = Digits::toEnglish($this->mobile);
         $this->verifiedMobile = null;
-
         $this->mobileAlreadyRegistered = false;
 
         $this->validateOnly('mobile');
 
-        $otpKey = 'registration:otp:'.$this->mobile;
-        $expiresAtKey = 'registration:otp:expires-at:'.$this->mobile;
-
-        // اگر OTP هنوز معتبر است، پیامک مجدد نفرست.
-        $expiresAt = Cache::get($expiresAtKey);
-
-        if (
-            Cache::has($otpKey)
-            && is_numeric($expiresAt)
-            && (int) $expiresAt > now()->timestamp
-        ) {
-            $this->otpExpiresAt = (int) $expiresAt;
-
-            Flux::modal('verify-mobile')->show();
-
-            return;
-        }
-
-        // پاک‌کردن اطلاعات OTP منقضی‌شده.
-        Cache::forget($otpKey);
-        Cache::forget($expiresAtKey);
-
-        $mobileKey = 'send-otp:mobile:'.$this->mobile;
-        $ipKey = 'send-otp:ip:'.request()->ip();
-
-        // محدودیت درخواست برای هر شماره موبایل.
-        if (RateLimiter::tooManyAttempts($mobileKey, 1)) {
-            $seconds = RateLimiter::availableIn($mobileKey);
-
-            $this->addError(
-                'mobile',
-                "برای این شماره اخیراً کد درخواست شده است. {$seconds} ثانیه دیگر تلاش کنید.",
-            );
-
-            return;
-        }
-
-        // محدودیت درخواست برای هر IP.
-        if (RateLimiter::tooManyAttempts($ipKey, 7)) {
-            $seconds = RateLimiter::availableIn($ipKey);
-
-            $this->addError(
-                'mobile',
-                "تعداد درخواست‌ها از این شبکه بیش از حد مجاز است. {$seconds} ثانیه دیگر تلاش کنید.",
-            );
-
-            return;
-        }
-
-        // بررسی ثبت قبلی شماره.
         $contactExists = Contact::query()
             ->where('type', ContactType::Mobile)
             ->where('value', $this->mobile)
@@ -107,43 +57,47 @@ class extends Component
             return;
         }
 
-        // شمارش درخواست، حتی اگر سرویس پیامک با خطا مواجه شود.
-        RateLimiter::hit($mobileKey, 120);
-        RateLimiter::hit($ipKey, 120);
-
-        $verificationCode = (string) random_int(100000, 999999);
-        $expiresAt = now()->addMinutes(2);
-
-        Cache::put(
-            $otpKey,
-            Hash::make($verificationCode),
-            $expiresAt,
+        $result = app(OtpService::class)->send(
+            purpose: OtpPurpose::Registration,
+            channel: OtpChannel::Sms,
+            recipient: $this->mobile,
+            ip: request()->ip(),
         );
 
-        Cache::put(
-            $expiresAtKey,
-            $expiresAt->timestamp,
-            $expiresAt,
-        );
+        match ($result['status']) {
+            'sent' => $this->handleOtpSent($result),
 
-        try {
-            app(SmsGateway::class)->sendOtp(
-                $this->mobile,
-                $verificationCode,
-            );
-        } catch (SmsDeliveryException $e) {
-            Cache::forget($otpKey);
-            Cache::forget($expiresAtKey);
+            'active' => $this->handleActiveOtp($result),
 
-            $this->addError(
+            'recipient_limited' => $this->addError(
+                'mobile',
+                'برای این شماره اخیراً کد درخواست شده است. '
+                .($result['seconds'] ?? 0)
+                .' ثانیه دیگر تلاش کنید.',
+            ),
+
+            'ip_limited' => $this->addError(
+                'mobile',
+                'تعداد درخواست‌ها از این شبکه بیش از حد مجاز است. '
+                .($result['seconds'] ?? 0)
+                .' ثانیه دیگر تلاش کنید.',
+            ),
+
+            'delivery_failed' => $this->addError(
                 'mobile',
                 'ارسال کد تأیید با مشکل مواجه شد. لطفاً کمی بعد دوباره تلاش کنید.',
-            );
+            ),
 
-            return;
-        }
+            default => $this->addError(
+                'mobile',
+                'ارسال کد تأیید با مشکل مواجه شد. لطفاً دوباره تلاش کنید.',
+            ),
+        };
+    }
 
-        $this->otpExpiresAt = $expiresAt->timestamp;
+    private function handleOtpSent(array $result): void
+    {
+        $this->otpExpiresAt = $this->resolveOtpTimestamp($result);
 
         Flux::toast(
             text: 'کد تأیید به شماره موبایل شما ارسال شد.',
@@ -153,89 +107,88 @@ class extends Component
         Flux::modal('verify-mobile')->show();
     }
 
+    private function handleActiveOtp(array $result): void
+    {
+        $this->otpExpiresAt = $this->resolveOtpTimestamp($result);
+
+        Flux::modal('verify-mobile')->show();
+    }
+
+    private function resolveOtpTimestamp(array $result): int
+    {
+        $expiresAt = $result['expires_at'] ?? null;
+
+        if ($expiresAt instanceof DateTimeInterface) {
+            return $expiresAt->getTimestamp();
+        }
+
+        if (is_numeric($expiresAt)) {
+            return (int) $expiresAt;
+        }
+
+        if (is_string($expiresAt)) {
+            return Carbon::parse($expiresAt)->timestamp;
+        }
+
+        return now()->addMinutes(2)->timestamp;
+    }
+
     public function verifyOtp(): void
     {
         $this->verificationCode = Digits::toEnglish(
             $this->verificationCode,
         );
+
         $this->mobile = Digits::toEnglish($this->mobile);
 
         $this->validateOnly('mobile');
         $this->validateOnly('verificationCode');
 
-        if ($this->verifiedMobile !== null && $this->verifiedMobile !== $this->mobile) {
-            $this->verifiedMobile = null;
-        }
+        $result = app(OtpService::class)->verify(
+            purpose: OtpPurpose::Registration,
+            channel: OtpChannel::Sms,
+            recipient: $this->mobile,
+            code: $this->verificationCode,
+            ip: request()->ip(),
+        );
 
-        $otpKey = 'registration:otp:'.$this->mobile;
-        $attemptsKey = 'registration:otp:attempts:'.$this->mobile;
+        match ($result['status']) {
+            'verified' => $this->handleOtpVerified(),
 
-        $hashedCode = Cache::get($otpKey);
-
-        if (
-            $this->verifiedMobile !== null
-            && $this->verifiedMobile !== $this->mobile
-        ) {
-            $this->verifiedMobile = null;
-        }
-
-        if (! is_string($hashedCode)) {
-            $this->addError(
-                'verificationCode',
-                'کد تأیید منقضی شده است یا هنوز درخواستی ثبت نکرده‌اید.',
-            );
-
-            return;
-        }
-
-        if (RateLimiter::tooManyAttempts($attemptsKey, 5)) {
-            $seconds = RateLimiter::availableIn($attemptsKey);
-
-            $this->addError(
-                'verificationCode',
-                "تعداد تلاش‌ها بیش از حد مجاز است. {$seconds} ثانیه دیگر تلاش کنید.",
-            );
-
-            return;
-        }
-
-        if (! Hash::check($this->verificationCode, $hashedCode)) {
-            RateLimiter::hit($attemptsKey, 300);
-
-            $this->addError(
+            'invalid' => $this->addError(
                 'verificationCode',
                 'کد تأیید نامعتبر است.',
-            );
+            ),
 
-            return;
-        }
+            'expired' => $this->addError(
+                'verificationCode',
+                'کد تأیید منقضی شده است یا هنوز درخواستی ثبت نکرده‌اید.',
+            ),
+
+            'rate_limited' => $this->addError(
+                'verificationCode',
+                'تعداد تلاش‌ها بیش از حد مجاز است. '
+                .($result['seconds'] ?? 0)
+                .' ثانیه دیگر تلاش کنید.',
+            ),
+
+            default => $this->addError(
+                'verificationCode',
+                'بررسی کد تأیید با مشکل مواجه شد. لطفاً دوباره تلاش کنید.',
+            ),
+        };
+    }
+
+    private function handleOtpVerified(): void
+    {
         $this->verifiedMobile = $this->mobile;
-
-        Cache::forget($otpKey);
-        Cache::forget('registration:otp:expires-at:'.$this->mobile);
-        RateLimiter::clear($attemptsKey);
 
         Flux::toast(
             text: 'شماره موبایل با موفقیت تأیید شد.',
             variant: 'success',
         );
+
         $this->register();
-    }
-
-    public function getOtpRemainingSecondsProperty(): int
-    {
-        return max(0, $this->otpExpiresAt - now()->timestamp);
-    }
-
-    public function clearVerificationErrors(): void
-    {
-        $this->reset('verificationCode');
-        $this->resetValidation('verificationCode');
-    }
-
-    public function closeExpiredOtpModal(): void
-    {
-        Flux::modal('verify-mobile')->close();
     }
 
     public function register(): void
@@ -325,4 +278,22 @@ class extends Component
             navigate: true,
         );
     }
+
+    public function clearVerificationErrors(): void
+    {
+        $this->reset('verificationCode');
+        $this->resetValidation('verificationCode');
+    }
+
+    public function closeExpiredOtpModal(): void
+    {
+        Flux::modal('verify-mobile')->close();
+    }
+
+    public function getOtpRemainingSecondsProperty(): int
+    {
+        return max(0, $this->otpExpiresAt - now()->timestamp);
+    }
+
+
 };

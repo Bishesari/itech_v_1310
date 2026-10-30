@@ -19,12 +19,15 @@ class Person extends Model
         ];
     }
 
+    // Person.php
     public function contacts(): BelongsToMany
     {
         return $this->belongsToMany(Contact::class)
+            ->using(ContactPerson::class)
             ->withPivot(['verified', 'active'])
             ->withTimestamps();
     }
+
 
 
     public function user(): HasOne

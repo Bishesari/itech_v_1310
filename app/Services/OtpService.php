@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Contracts\SmsGateway;
+use App\Enums\OtpChannel;
+use App\Enums\OtpPurpose;
 use App\Exceptions\Verification\SmsDeliveryException;
-use Illuminate\Support\Facades\Cache;
+use App\Models\OtpVerification;
+use App\Contracts\SmsGateway;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use InvalidArgumentException;
@@ -21,61 +23,69 @@ final class OtpService
 
     private const int SEND_DECAY_SECONDS = 120;
 
-    private const int VERIFY_LIMIT = 5;
+    private const int VERIFY_LIMIT_PER_RECIPIENT = 5;
+
+    private const int VERIFY_LIMIT_PER_IP = 20;
 
     private const int VERIFY_DECAY_SECONDS = 300;
+
+    private const int MAX_ATTEMPTS_PER_OTP = 5;
+
+
 
     public function __construct(
         private readonly SmsGateway $smsGateway,
     ) {}
 
     /**
-     * درخواست OTP برای یک شماره و یک کاربرد مشخص.
+     * درخواست OTP برای یک کاربرد، کانال و مقصد مشخص.
      *
      * status:
-     * - active: کد قبلی هنوز معتبر است.
-     * - sent: کد جدید ارسال شده است.
-     * - mobile_limited: محدودیت شماره موبایل.
-     * - ip_limited: محدودیت IP.
+     * - active
+     * - sent
+     * - recipient_limited
+     * - ip_limited
      */
     public function send(
-        string $purpose,
-        string $mobile,
+        OtpPurpose $purpose,
+        OtpChannel $channel,
+        string $recipient,
         string $ip,
     ): array {
-        $this->validatePurpose($purpose);
+        $this->validateChannel($channel);
 
-        $otpKey = $this->otpKey($purpose, $mobile);
-        $expiresAtKey = $this->expiresAtKey($purpose, $mobile);
+        $activeOtp = $this->activeOtp(
+            $purpose,
+            $channel,
+            $recipient,
+        );
 
-        $expiresAt = Cache::get($expiresAtKey);
-
-        // تا زمان اعتبار OTP فعلی، پیامک جدید ارسال نشود.
-        if (
-            Cache::has($otpKey)
-            && is_numeric($expiresAt)
-            && (int) $expiresAt > now()->timestamp
-        ) {
+        if ($activeOtp !== null) {
             return [
                 'status' => 'active',
-                'expires_at' => (int) $expiresAt,
+                'expires_at' => $activeOtp->expires_at->timestamp,
             ];
         }
 
-        // پاک‌کردن OTP منقضی‌شده.
-        $this->forgetOtp($purpose, $mobile);
+        $recipientKey = $this->recipientRateLimitKey(
+            $purpose,
+            $channel,
+            $recipient,
+        );
 
-        // کلیدهای محدودیت ارسال مطابق رفتار فعلی ثبت‌نام هستند.
-        $mobileKey = 'send-otp:mobile:'.$mobile;
-        $ipKey = 'send-otp:ip:'.$ip;
+        $ipKey = $this->ipRateLimitKey(
+            $purpose,
+            $channel,
+            $ip,
+        );
 
         if (RateLimiter::tooManyAttempts(
-            $mobileKey,
+            $recipientKey,
             self::SEND_LIMIT_PER_MOBILE,
         )) {
             return [
-                'status' => 'mobile_limited',
-                'seconds' => RateLimiter::availableIn($mobileKey),
+                'status' => 'recipient_limited',
+                'seconds' => RateLimiter::availableIn($recipientKey),
             ];
         }
 
@@ -89,9 +99,8 @@ final class OtpService
             ];
         }
 
-        // شمارش درخواست حتی در صورت شکست ارسال پیامک.
         RateLimiter::hit(
-            $mobileKey,
+            $recipientKey,
             self::SEND_DECAY_SECONDS,
         );
 
@@ -101,36 +110,37 @@ final class OtpService
         );
 
         $code = (string) random_int(100000, 999999);
-        $expiresAt = now()->addMinutes(self::OTP_TTL_MINUTES);
 
-        Cache::put(
-            $otpKey,
-            Hash::make($code),
-            $expiresAt,
-        );
-
-        Cache::put(
-            $expiresAtKey,
-            $expiresAt->timestamp,
-            $expiresAt,
-        );
+        $otp = OtpVerification::query()->create([
+            'purpose' => $purpose,
+            'channel' => $channel,
+            'recipient' => $recipient,
+            'code' => Hash::make($code),
+            'expires_at' => now()->addMinutes(self::OTP_TTL_MINUTES),
+            'attempts' => 0,
+            'max_attempts' => self::MAX_ATTEMPTS_PER_OTP,
+        ]);
 
         try {
-            $this->smsGateway->sendOtp($mobile, $code);
+            $this->sendCode(
+                $channel,
+                $recipient,
+                $code,
+            );
         } catch (SmsDeliveryException $e) {
-            $this->forgetOtp($purpose, $mobile);
+            $otp->delete();
 
             throw $e;
         }
 
         return [
             'status' => 'sent',
-            'expires_at' => $expiresAt->timestamp,
+            'expires_at' => $otp->expires_at->timestamp,
         ];
     }
 
     /**
-     * بررسی OTP و مصرف آن پس از تأیید موفق.
+     * بررسی OTP و ثبت زمان تأیید پس از موفقیت.
      *
      * status:
      * - verified
@@ -138,112 +148,205 @@ final class OtpService
      * - expired
      * - rate_limited
      */
+
     public function verify(
-        string $purpose,
-        string $mobile,
+        OtpPurpose $purpose,
+        OtpChannel $channel,
+        string $recipient,
         string $code,
+        string $ip,
     ): array {
-        $this->validatePurpose($purpose);
+        $this->validateChannel($channel);
 
-        $otpKey = $this->otpKey($purpose, $mobile);
-        $attemptsKey = $this->attemptsKey($purpose, $mobile);
+        $otp = OtpVerification::query()
+            ->forRecipient($purpose, $channel, $recipient)
+            ->pending()
+            ->latest('id')
+            ->first();
 
-        $hashedCode = Cache::get($otpKey);
-
-        if (! is_string($hashedCode)) {
+        if ($otp === null || $otp->isExpired()) {
             return ['status' => 'expired'];
         }
 
+        $recipientKey = $this->verifyRecipientRateLimitKey(
+            $purpose,
+            $channel,
+            $recipient,
+        );
+
+        $ipKey = $this->verifyIpRateLimitKey(
+            $purpose,
+            $channel,
+            $ip,
+        );
+
         if (RateLimiter::tooManyAttempts(
-            $attemptsKey,
-            self::VERIFY_LIMIT,
+            $recipientKey,
+            self::VERIFY_LIMIT_PER_RECIPIENT,
         )) {
             return [
                 'status' => 'rate_limited',
-                'seconds' => RateLimiter::availableIn($attemptsKey),
+                'seconds' => RateLimiter::availableIn($recipientKey),
             ];
         }
 
-        if (! Hash::check($code, $hashedCode)) {
+        if (RateLimiter::tooManyAttempts(
+            $ipKey,
+            self::VERIFY_LIMIT_PER_IP,
+        )) {
+            return [
+                'status' => 'rate_limited',
+                'seconds' => RateLimiter::availableIn($ipKey),
+            ];
+        }
+
+        if (! $otp->hasAttemptsLeft()) {
+            return [
+                'status' => 'rate_limited',
+                'seconds' => max(
+                    0,
+                    now()->diffInSeconds($otp->expires_at, false),
+                ),
+            ];
+        }
+
+        if (! Hash::check($code, $otp->code)) {
+            $otp->increment('attempts');
+
             RateLimiter::hit(
-                $attemptsKey,
+                $recipientKey,
+                self::VERIFY_DECAY_SECONDS,
+            );
+
+            RateLimiter::hit(
+                $ipKey,
                 self::VERIFY_DECAY_SECONDS,
             );
 
             return ['status' => 'invalid'];
         }
 
-        // OTP پس از تأیید قابل استفاده مجدد نیست.
-        $this->forgetOtp($purpose, $mobile);
+        $otp->forceFill([
+            'verified_at' => now(),
+        ])->save();
 
-        RateLimiter::clear($attemptsKey);
+        RateLimiter::clear($recipientKey);
 
         return ['status' => 'verified'];
     }
 
-    public function expiresAt(
-        string $purpose,
-        string $mobile,
-    ): ?int {
-        $this->validatePurpose($purpose);
 
-        $expiresAt = Cache::get(
-            $this->expiresAtKey($purpose, $mobile),
-        );
-
-        if (
-            ! Cache::has($this->otpKey($purpose, $mobile))
-            || ! is_numeric($expiresAt)
-            || (int) $expiresAt <= now()->timestamp
-        ) {
-            $this->forgetOtp($purpose, $mobile);
-
-            return null;
-        }
-
-        return (int) $expiresAt;
+    /**
+     * OTPهای بازنشدهٔ قبلی را برای این مقصد منقضی می‌کند.
+     *
+     * سوابق حذف نمی‌شوند.
+     */
+    public function expirePending(
+        OtpPurpose $purpose,
+        OtpChannel $channel,
+        string $recipient,
+    ): int {
+        return OtpVerification::query()
+            ->forRecipient($purpose, $channel, $recipient)
+            ->pending()
+            ->where('expires_at', '>', now())
+            ->update([
+                'expires_at' => now(),
+            ]);
     }
 
-    public function forgetOtp(
-        string $purpose,
-        string $mobile,
+    private function activeOtp(
+        OtpPurpose $purpose,
+        OtpChannel $channel,
+        string $recipient,
+    ): ?OtpVerification {
+        return OtpVerification::query()
+            ->forRecipient($purpose, $channel, $recipient)
+            ->pending()
+            ->where('expires_at', '>', now())
+            ->latest('id')
+            ->first();
+    }
+
+    private function sendCode(
+        OtpChannel $channel,
+        string $recipient,
+        string $code,
     ): void {
-        $this->validatePurpose($purpose);
+        match ($channel) {
+            OtpChannel::Sms => $this->smsGateway->sendOtp(
+                $recipient,
+                $code,
+            ),
 
-        Cache::forget($this->otpKey($purpose, $mobile));
-        Cache::forget($this->expiresAtKey($purpose, $mobile));
+            default => throw new InvalidArgumentException(
+                "OTP channel [{$channel->value}] is not supported yet.",
+            ),
+        };
     }
 
-    private function otpKey(
-        string $purpose,
-        string $mobile,
+    private function verifyRecipientRateLimitKey(
+        OtpPurpose $purpose,
+        OtpChannel $channel,
+        string $recipient,
     ): string {
-        return "{$purpose}:otp:{$mobile}";
+        return implode(':', [
+            'verify-otp',
+            $purpose->value,
+            $channel->value,
+            'recipient',
+            $recipient,
+        ]);
     }
 
-    private function expiresAtKey(
-        string $purpose,
-        string $mobile,
+    private function verifyIpRateLimitKey(
+        OtpPurpose $purpose,
+        OtpChannel $channel,
+        string $ip,
     ): string {
-        return "{$purpose}:otp:expires-at:{$mobile}";
+        return implode(':', [
+            'verify-otp',
+            $purpose->value,
+            $channel->value,
+            'ip',
+            $ip,
+        ]);
     }
 
-    private function attemptsKey(
-        string $purpose,
-        string $mobile,
-    ): string {
-        return "{$purpose}:otp:attempts:{$mobile}";
-    }
-
-    private function validatePurpose(string $purpose): void
+    private function validateChannel(OtpChannel $channel): void
     {
-        if (! in_array($purpose, [
-            'registration',
-            'password-recovery',
-        ], true)) {
+        if ($channel !== OtpChannel::Sms) {
             throw new InvalidArgumentException(
-                'Unsupported OTP purpose.',
+                "OTP channel [{$channel->value}] is not supported yet.",
             );
         }
+    }
+
+    private function recipientRateLimitKey(
+        OtpPurpose $purpose,
+        OtpChannel $channel,
+        string $recipient,
+    ): string {
+        return implode(':', [
+            'send-otp',
+            $purpose->value,
+            $channel->value,
+            'recipient',
+            $recipient,
+        ]);
+    }
+
+    private function ipRateLimitKey(
+        OtpPurpose $purpose,
+        OtpChannel $channel,
+        string $ip,
+    ): string {
+        return implode(':', [
+            'send-otp',
+            $purpose->value,
+            $channel->value,
+            'ip',
+            $ip,
+        ]);
     }
 }
