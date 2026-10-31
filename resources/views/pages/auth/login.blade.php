@@ -29,7 +29,7 @@
                     <!-- Remember Me -->
                     <div class="flex justify-between mb-5 mx-2">
                         <flux:field variant="inline">
-                            <flux:checkbox wire:model="remember" class="cursor-pointer"/>
+                            <flux:checkbox name="remember" class="cursor-pointer"/>
                             <flux:label class="cursor-pointer">{{__('بخاطرسپاری')}}</flux:label>
                         </flux:field>
 
