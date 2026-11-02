@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
@@ -60,5 +61,40 @@ class User extends Authenticatable implements PasskeyUser
     public function person(): BelongsTo
     {
         return $this->belongsTo(Person::class);
+    }
+
+    public function receivables(): HasMany
+    {
+        return $this->hasMany(Receivable::class);
+    }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(Payment::class);
+    }
+
+    public function createdReceivables(): HasMany
+    {
+        return $this->hasMany(Receivable::class, 'created_by');
+    }
+
+    public function createdPayments(): HasMany
+    {
+        return $this->hasMany(Payment::class, 'created_by');
+    }
+
+    public function createdExpenses(): HasMany
+    {
+        return $this->hasMany(Expense::class, 'created_by');
+    }
+
+    public function createdRefunds(): HasMany
+    {
+        return $this->hasMany(Refund::class, 'created_by');
+    }
+
+    public function createdAccountTransfers(): HasMany
+    {
+        return $this->hasMany(AccountTransfer::class, 'created_by');
     }
 }
