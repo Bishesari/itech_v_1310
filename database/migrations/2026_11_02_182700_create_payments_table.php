@@ -32,6 +32,7 @@ return new class extends Migration
                 ->nullable()
                 ->constrained('users')
                 ->nullOnDelete();
+            $table->timestamp('expires_at')->nullable()->index();
 
             $table->timestamps();
 

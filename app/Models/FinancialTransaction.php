@@ -14,6 +14,18 @@ class FinancialTransaction extends Model
     /** @use HasFactory<FinancialTransactionFactory> */
     use HasFactory;
 
+    protected $fillable = [
+        'financial_account_id',
+        'type',
+        'amount',
+        'occurred_at',
+        'reference_type',
+        'event_key',
+        'reference_id',
+        'description',
+        'created_by',
+    ];
+
     protected function casts(): array
     {
         return [

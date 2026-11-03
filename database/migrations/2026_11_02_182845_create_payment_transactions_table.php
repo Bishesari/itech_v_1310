@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\PaymentTransactionStatus;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -37,6 +38,13 @@ return new class extends Migration
             $table->timestamp('paid_at')->nullable();
 
             $table->text('description')->nullable();
+
+            $table->string('gateway', 30)->nullable();
+            $table->string('gateway_request_id', 100)->nullable()->unique();
+            $table->string('gateway_token', 150)->nullable();
+            $table->string('gateway_reference', 150)->nullable();
+            $table->timestamp('gateway_token_requested_at')->nullable();
+
 
             $table->timestamps();
 

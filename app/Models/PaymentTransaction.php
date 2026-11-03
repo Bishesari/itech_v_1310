@@ -14,12 +14,21 @@ class PaymentTransaction extends Model
     /** @use HasFactory<PaymentTransactionFactory> */
     use HasFactory;
 
+    protected $fillable = [
+        'gateway_token_requested_at',
+        'gateway_token',
+        'status',
+        'gateway_reference',
+        'paid_at',
+    ];
+
     protected function casts(): array
     {
         return [
             'amount' => 'integer',
             'status' => PaymentTransactionStatus::class,
             'paid_at' => 'datetime',
+            'gateway_token_requested_at' => 'datetime',
         ];
     }
 

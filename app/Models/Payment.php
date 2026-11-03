@@ -14,12 +14,29 @@ class Payment extends Model
     /** @use HasFactory<PaymentFactory> */
     use HasFactory;
 
+    protected $fillable = [
+        'user_id',
+        'amount',
+        'status',
+        'description',
+        'created_by',
+        'payment_method_id',
+        'financial_account_id',
+        'receivable_id',
+        'expires_at',
+        'gateway',
+        'gateway_request_id',
+        'paid_at',
+        'tracking_code',
+    ];
+
     protected function casts(): array
     {
         return [
             'amount' => 'integer',
             'status' => PaymentStatus::class,
             'paid_at' => 'datetime',
+            'expires_at' => 'datetime',
         ];
     }
 

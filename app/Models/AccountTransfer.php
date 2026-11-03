@@ -13,6 +13,16 @@ class AccountTransfer extends Model
     /** @use HasFactory<AccountTransferFactory> */
     use HasFactory;
 
+    protected $fillable = [
+        'from_account_id',
+        'created_by',
+        'description',
+        'status',
+        'amount',
+        'to_account_id',
+        'transferred_at',
+    ];
+
     protected function casts(): array
     {
         return [

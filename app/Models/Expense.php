@@ -12,6 +12,16 @@ class Expense extends Model
     /** @use HasFactory<ExpenseFactory> */
     use HasFactory;
 
+    protected $fillable = [
+        'expense_category_id',
+        'financial_account_id',
+        'amount',
+        'paid_at',
+        'description',
+        'tracking_code',
+        'created_by',
+    ];
+
     protected function casts(): array
     {
         return [

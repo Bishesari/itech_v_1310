@@ -22,6 +22,9 @@ return new class extends Migration
             $table->foreignId('financial_account_id')
                 ->constrained()
                 ->restrictOnDelete();
+            $table->foreignId('payment_method_id')
+                ->constrained()
+                ->restrictOnDelete();
 
             $table->unsignedBigInteger('amount');
 

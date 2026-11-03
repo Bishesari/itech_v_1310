@@ -13,6 +13,18 @@ class Refund extends Model
     /** @use HasFactory<RefundFactory> */
     use HasFactory;
 
+    protected $fillable = [
+        'payment_transaction_id',
+        'financial_account_id',
+        'payment_method_id',
+        'created_by',
+        'tracking_code',
+        'refunded_at',
+        'status',
+        'amount',
+        'description',
+    ];
+
     protected function casts(): array
     {
         return [
@@ -35,5 +47,9 @@ class Refund extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+    public function paymentMethod(): BelongsTo
+    {
+        return $this->belongsTo(PaymentMethod::class);
     }
 }

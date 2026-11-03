@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\FinancialAccountType;
+use App\Enums\FinancialTransactionType;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -52,5 +53,23 @@ class FinancialAccount extends Model
     public function incomingTransfers(): HasMany
     {
         return $this->hasMany(AccountTransfer::class, 'to_account_id');
+    }
+    public function getBalanceAttribute(): int
+    {
+        return (int) $this->financialTransactions()
+            ->selectRaw('
+            COALESCE(SUM(
+                CASE
+                    WHEN type = ? THEN amount
+                    WHEN type = ? THEN -amount
+                    ELSE 0
+                END
+            ), 0) as balance
+        ', [
+                FinancialTransactionType::INCOME->value,
+                FinancialTransactionType::EXPENSE->value,
+            ])
+            ->first()
+            ?->balance ?? 0;
     }
 }
