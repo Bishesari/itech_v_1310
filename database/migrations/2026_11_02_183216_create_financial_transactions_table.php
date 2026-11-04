@@ -37,7 +37,10 @@ return new class extends Migration
 
             $table->timestamps();
 
-            $table->index(['financial_account_id', 'type', 'occurred_at']);
+            $table->index(
+                ['financial_account_id', 'type', 'occurred_at'],
+                'fin_trans_account_type_date_idx'
+            );
         });
     }
 
