@@ -51,17 +51,11 @@ class Standard extends Model
         return $this->hasMany(Chapter::class)->orderBy('number');
     }
 
-    public function products(): BelongsToMany
+    public function products(): HasMany
     {
-        return $this->belongsToMany(Product::class)
-            ->withTimestamps();
+        return $this->hasMany(Product::class);
     }
 
-    public function questionBankProducts(): BelongsToMany
-    {
-        return $this->products()
-            ->where('products.type', ProductType::WrittenSampleQuestion->value);
-    }
 
     public function questions(): HasManyThrough
     {

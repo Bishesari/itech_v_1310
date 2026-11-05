@@ -1,24 +1,19 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Enums;
 
 enum ProductType: string
 {
-    case WrittenSampleQuestion = 'written_sample_question';
-    case ExamRegistration = 'exam_registration';
-    case SoftwareService = 'software_service';
-    case CourseTuition = 'course_tuition';
-
-    case Mock = 'mock';
+    case WRITTEN_FREQUENT_QUESTIONS = 'written_frequent_questions';
+    case MOCK_EXAM = 'mock_exam';
 
     public function label(): string
     {
         return match ($this) {
-            self::WrittenSampleQuestion => 'نمونه سؤالات کتبی',
-            self::ExamRegistration => 'ثبت‌نام آزمون',
-            self::SoftwareService => 'خدمات نرم‌افزاری',
-            self::CourseTuition => 'شهریه دوره',
-            self::Mock => 'آزمون شبیه‌سازی',
+            self::WRITTEN_FREQUENT_QUESTIONS => 'نمونه سؤالات پرتکرار کتبی',
+            self::MOCK_EXAM => 'آزمون آزمایشی',
         };
     }
 }

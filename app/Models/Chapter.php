@@ -36,6 +36,7 @@ class Chapter extends Model
 
     public function exams(): BelongsToMany
     {
-        return $this->belongsToMany(Exam::class);
+        return $this->belongsToMany(Exam::class)
+            ->withTimestamps();
     }
 }
