@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
@@ -20,12 +22,17 @@ class ExamAttemptQuestionOption extends Model
         return [
             'position' => 'integer',
             'is_correct' => 'boolean',
+            'option_snapshot' => 'array',
         ];
     }
 
+
     public function attemptQuestion(): BelongsTo
     {
-        return $this->belongsTo(ExamAttemptQuestion::class);
+        return $this->belongsTo(
+            ExamAttemptQuestion::class,
+            'exam_attempt_question_id'
+        );
     }
 
     public function option(): BelongsTo

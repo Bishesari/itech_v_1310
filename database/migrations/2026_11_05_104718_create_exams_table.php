@@ -40,7 +40,7 @@ return new class extends Migration
             $table->decimal('passing_score', 5, 2)->nullable();
 
             $table->timestamp('available_from')->nullable();
-            $table->timestamp('available_until')->nullable();
+            $table->timestamp('available_until');
 
             $table->timestamps();
 

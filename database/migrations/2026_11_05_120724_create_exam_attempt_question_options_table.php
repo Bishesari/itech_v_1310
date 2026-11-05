@@ -27,7 +27,7 @@ return new class extends Migration
             $table->unsignedTinyInteger('position');
 
             // Snapshot متن گزینه
-            $table->text('option_snapshot');
+            $table->json('option_snapshot');
 
             // پاسخ صحیح در زمان برگزاری آزمون
             $table->boolean('is_correct');
