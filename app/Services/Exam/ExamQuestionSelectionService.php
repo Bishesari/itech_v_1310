@@ -16,10 +16,10 @@ class ExamQuestionSelectionService
         $isQuiz = $exam->type === ExamType::QUIZ;
 
         if (! $isQuiz && ! in_array($exam->type, [
-                ExamType::MIDTERM,
-                ExamType::FINAL,
-                ExamType::MOCK,
-            ], true)) {
+            ExamType::MIDTERM,
+            ExamType::FINAL,
+            ExamType::MOCK,
+        ], true)) {
             throw new DomainException('نوع آزمون معتبر نیست.');
         }
 
@@ -74,7 +74,7 @@ class ExamQuestionSelectionService
             : $this->allocateEqually($capacities, $questionCount);
 
         // انتخاب تصادفی سؤال‌ها
-        $selected = new Collection();
+        $selected = new Collection;
 
         foreach ($chapters as $chapter) {
             $count = $allocations[$chapter->id] ?? 0;
@@ -168,8 +168,7 @@ class ExamQuestionSelectionService
 
         uksort(
             $remainders,
-            fn ($a, $b) =>
-            ($remainders[$b] <=> $remainders[$a])
+            fn ($a, $b) => ($remainders[$b] <=> $remainders[$a])
                 ?: ($chapterOrder[$a] <=> $chapterOrder[$b])
         );
 

@@ -13,10 +13,10 @@ use App\Models\User;
 use DomainException;
 use Illuminate\Support\Facades\DB;
 
-class ExamAnswerService
+readonly class ExamAnswerService
 {
     public function __construct(
-        private readonly ExamAttemptStatusService $attemptStatusService,
+        private ExamAttemptStatusService $attemptStatusService,
     ) {}
 
     /**

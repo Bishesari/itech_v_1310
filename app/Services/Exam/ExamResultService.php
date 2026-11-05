@@ -11,10 +11,10 @@ use App\Models\ExamAttemptQuestion;
 use App\Models\User;
 use DomainException;
 
-class ExamResultService
+readonly class ExamResultService
 {
     public function __construct(
-        private readonly ExamAttemptStatusService $attemptStatusService,
+        private ExamAttemptStatusService $attemptStatusService,
     ) {}
 
     /**
@@ -139,7 +139,7 @@ class ExamResultService
             'is_correct' => $canReviewAnswers
                 ? $question->options->contains(
                     fn ($option) =>
-                        $option->id === $selectedOptionId &&
+                        (int) $option->id === (int) $selectedOptionId &&
                         $option->is_correct
                 )
                 : null,
@@ -153,7 +153,7 @@ class ExamResultService
                         'id' => $option->id,
                         'position' => $option->position,
                         'snapshot' => $option->option_snapshot,
-                        'is_selected' => $option->id === $selectedOptionId,
+                        'is_selected' => $selectedOptionId !== null && (int) $option->id === (int) $selectedOptionId,
                     ];
 
                     if ($canReviewAnswers) {

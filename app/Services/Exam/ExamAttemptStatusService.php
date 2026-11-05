@@ -7,10 +7,10 @@ namespace App\Services\Exam;
 use App\Enums\ExamAttemptStatus;
 use App\Models\ExamAttempt;
 
-class ExamAttemptStatusService
+readonly class ExamAttemptStatusService
 {
     public function __construct(
-        private readonly ExamGradingService $gradingService,
+        private ExamGradingService $gradingService,
     ) {}
 
     /**

@@ -9,22 +9,19 @@ use App\Enums\ExamType;
 use App\Models\Exam;
 use App\Models\ExamAttempt;
 use App\Models\ExamAttemptQuestion;
-use App\Models\ExamAttemptQuestionOption;
 use App\Models\ExamQuestion;
-use App\Models\ExamQuestionOption;
 use App\Models\Option;
 use App\Models\Question;
 use App\Models\User;
 use BackedEnum;
 use DomainException;
-use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
-class ExamAttemptService
+readonly class ExamAttemptService
 {
     public function __construct(
-        private readonly ExamQuestionSelectionService $questionSelectionService,
+        private ExamQuestionSelectionService $questionSelectionService,
     ) {}
 
     public function start(Exam $exam, User $user): ExamAttempt
@@ -73,10 +70,7 @@ class ExamAttemptService
                 $productAccess = $lockedExam->productAccess()
                     ->first();
 
-                if (
-                    $productAccess === null ||
-                    $productAccess->user_id !== $user->id
-                ) {
+                if ($productAccess === null || (int) $productAccess->user_id !== (int) $user->id) {
                     throw new DomainException(
                         'شما مجاز به شرکت در این آزمون نیستید.'
                     );
@@ -123,8 +117,9 @@ class ExamAttemptService
             $exam->question_count
         );
 
+        $questions->loadMissing('options');
+
         foreach ($questions->values() as $index => $question) {
-            $question->loadMissing('options');
 
             $options = $question->options;
 

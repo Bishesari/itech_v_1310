@@ -67,6 +67,12 @@ class ExamGradingService
                 $correctOptions = $question->options
                     ->where('is_correct', true);
 
+                if ($question->options->count() !== 4) {
+                    throw new DomainException(
+                        "سؤال شماره {$question->id} باید دقیقاً چهار گزینه داشته باشد."
+                    );
+                }
+
                 if ($correctOptions->count() !== 1) {
                     throw new DomainException(
                         "سؤال شماره {$question->id} باید دقیقاً یک گزینه صحیح داشته باشد."
@@ -79,9 +85,7 @@ class ExamGradingService
                     continue;
                 }
 
-                if (
-                    $correctOptions->first()->id === $selectedOptionId
-                ) {
+                if ((int) $correctOptions->first()->id === (int) $selectedOptionId) {
                     $correctCount++;
                 }
             }
