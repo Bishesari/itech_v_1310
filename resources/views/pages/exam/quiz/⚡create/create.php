@@ -5,6 +5,7 @@ use App\Models\Chapter;
 use App\Models\Standard;
 use App\Services\Exam\ExamCreationService;
 use Illuminate\Support\Collection;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Livewire\Component;
 
@@ -13,7 +14,6 @@ new class extends Component
     public $standards;
 
     public Collection $chapters;
-
 
     public ?int $standard_id = null;
 
@@ -43,7 +43,6 @@ new class extends Component
             ->get(['id', 'name_fa']);
     }
 
-
     public function updatedStandardId(): void
     {
         $this->chapter_ids = [];
@@ -54,6 +53,7 @@ new class extends Component
         }
 
         $this->chapters = Chapter::query()
+            ->withCount('questions')
             ->where('standard_id', $this->standard_id)
             ->orderBy('number')
             ->get(['id', 'number', 'title']);
@@ -62,7 +62,12 @@ new class extends Component
     public function create(ExamCreationService $service): void
     {
         $validated = $this->validate([
-            'standard_id' => ['required', 'exists:standards,id'],
+            'standard_id' => [
+                'required',
+                'integer',
+                Rule::exists('standards', 'id')
+                    ->where('is_active', true),
+            ],
             'chapter_ids' => ['required', 'array', 'min:1'],
             'chapter_ids.*' => ['required', 'integer', 'distinct', 'exists:chapters,id'],
             'title' => ['required', 'string', 'max:255'],
@@ -70,8 +75,18 @@ new class extends Component
             'question_count' => ['required', 'integer', 'min:1'],
             'duration_minutes' => ['required', 'integer', 'min:1'],
             'passing_score' => ['nullable', 'numeric', 'between:0,100'],
-            'available_from' => ['nullable', 'date'],
-            'available_until' => ['required', 'date'],
+            'available_from' => [
+                'nullable',
+                'date',
+                'before:available_until',
+            ],
+
+            'available_until' => [
+                'required',
+                'date',
+                'after:available_from',
+            ],
+
         ]);
 
         // اطمینان از تعلق تمام فصل‌ها به Standard انتخاب‌شده

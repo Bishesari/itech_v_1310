@@ -5,18 +5,19 @@ declare(strict_types=1);
 namespace App\Services\Exam;
 
 use App\Enums\ExamType;
+use App\Enums\ProductType;
 use App\Models\Chapter;
 use App\Models\Exam;
-use App\Models\ProductAccess;
+use App\Models\Product;
 use App\Models\User;
 use DomainException;
 use Illuminate\Support\Facades\DB;
 
-class ExamCreationService
+readonly class ExamCreationService
 {
     public function __construct(
-        private readonly ExamQuestionSelectionService $questionSelectionService,
-        private readonly ExamSnapshotService $snapshotService,
+        private ExamQuestionSelectionService $questionSelectionService,
+        private ExamSnapshotService $snapshotService,
     ) {}
 
     public function create(array $data, User $creator): Exam
@@ -25,33 +26,32 @@ class ExamCreationService
             $type = $this->resolveType($data['type']);
 
             $standardId = $data['standard_id'] ?? null;
+            $productId = null;
 
             if ($type === ExamType::MOCK) {
-                $productAccess = ProductAccess::query()
-                    ->with('product')
+                $product = Product::query()
                     ->lockForUpdate()
-                    ->findOrFail($data['product_access_id']);
+                    ->findOrFail($data['product_id']);
 
-                if ($productAccess->user_id !== $creator->id) {
+                if ($product->type !== ProductType::MOCK_EXAM) {
                     throw new DomainException(
-                        'این دسترسی متعلق به کاربر جاری نیست.'
+                        'نوع محصول انتخاب‌شده برای آزمون آزمایشی معتبر نیست.'
                     );
                 }
 
-                if ($productAccess->exam()->exists()) {
+                if ($product->exam()->exists()) {
                     throw new DomainException(
-                        'برای این خرید قبلاً آزمون ایجاد شده است.'
+                        'برای این محصول قبلاً آزمون ایجاد شده است.'
                     );
                 }
 
-                $standardId = $productAccess->product->standard_id;
+                $productId = $product->id;
+                $standardId = $product->standard_id;
             }
 
             $exam = Exam::query()->create([
                 'standard_id' => $standardId,
-                'product_access_id' => $type === ExamType::MOCK
-                    ? $productAccess->id
-                    : null,
+                'product_id' => $productId,
                 'created_by' => $creator->id,
                 'title' => $data['title'],
                 'type' => $type,
@@ -108,7 +108,9 @@ class ExamCreationService
         $uniqueChapterIds = array_unique($chapterIds);
 
         if (count($uniqueChapterIds) !== count($chapterIds)) {
-            throw new DomainException('فصل تکراری در فهرست انتخاب‌شده وجود دارد.');
+            throw new DomainException(
+                'فصل تکراری در فهرست انتخاب‌شده وجود دارد.'
+            );
         }
 
         $validChapterCount = Chapter::query()

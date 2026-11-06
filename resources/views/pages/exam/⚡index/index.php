@@ -34,23 +34,33 @@ new class extends Component
         $now = now();
 
         $exams = Exam::query()
-            ->where(function ($query) use ($user) {
-                $query
-                    ->where('type', '!=', ExamType::MOCK->value)
-                    ->orWhereHas(
-                        'productAccess',
-                        fn ($query) => $query->where(
-                            'user_id',
-                            $user->id
-                        )
-                    );
-            })
             ->with([
                 'attempts' => fn ($query) => $query
                     ->where('user_id', $user->id),
             ])
             ->orderByDesc('created_at')
             ->get();
+
+        // شناسه محصولات آزمون آزمایشی
+        $mockProductIds = $exams
+            ->where('type', ExamType::MOCK)
+            ->pluck('product_id')
+            ->filter()
+            ->unique();
+
+        // دسترسی‌های خریداری‌شده کاربر
+        $productAccesses = ProductAccess::query()
+            ->where('user_id', $user->id)
+            ->whereIn('product_id', $mockProductIds)
+            ->get()
+            ->keyBy('id');
+
+        // تلاش‌های مربوط به دسترسی‌های آزمون آزمایشی
+        $mockAttempts = ExamAttempt::query()
+            ->where('user_id', $user->id)
+            ->whereIn('product_access_id', $productAccesses->keys())
+            ->get()
+            ->keyBy('product_access_id');
 
         $statusService = app(ExamAttemptStatusService::class);
 
@@ -60,6 +70,55 @@ new class extends Component
 
         foreach ($exams as $exam) {
 
+            $isAvailable = (
+                    $exam->available_from === null ||
+                    $exam->available_from->lessThanOrEqualTo($now)
+                ) && $exam->available_until->greaterThanOrEqualTo($now);
+
+            // آزمون آزمایشی
+            if ($exam->type === ExamType::MOCK) {
+
+                $accesses = $productAccesses->where(
+                    'product_id',
+                    $exam->product_id
+                );
+
+                foreach ($accesses as $access) {
+
+                    $attempt = $mockAttempts->get($access->id);
+
+                    if ($attempt) {
+
+                        $attempt = $statusService->refresh($attempt);
+
+                        $item = $this->formatExam(
+                            $exam,
+                            $attempt,
+                            $access->id
+                        );
+
+                        if ($attempt->status === ExamAttemptStatus::IN_PROGRESS) {
+                            $inProgress[] = $item;
+                        } elseif ($attempt->status === ExamAttemptStatus::SUBMITTED) {
+                            $completed[] = $item;
+                        }
+
+                        continue;
+                    }
+
+                    if ($isAvailable) {
+                        $available[] = $this->formatExam(
+                            $exam,
+                            null,
+                            $access->id
+                        );
+                    }
+                }
+
+                continue;
+            }
+
+            // آزمون‌های داخلی: منطق قبلی حفظ می‌شود.
             /** @var ExamAttempt|null $attempt */
             $attempt = $exam->attempts->first();
 
@@ -78,11 +137,6 @@ new class extends Component
                 continue;
             }
 
-            $isAvailable = (
-                    $exam->available_from === null ||
-                    $exam->available_from->lessThanOrEqualTo($now)
-                ) && $exam->available_until->greaterThanOrEqualTo($now);
-
             if ($isAvailable) {
                 $available[] = $this->formatExam($exam);
             }
@@ -96,6 +150,7 @@ new class extends Component
     private function formatExam(
         Exam $exam,
         ?ExamAttempt $attempt = null,
+        ?int $productAccessId = null,
     ): array {
         return [
             'id' => $exam->id,
@@ -110,6 +165,7 @@ new class extends Component
             'available_from' => $exam->available_from?->format('Y/m/d H:i'),
             'available_until' => $exam->available_until->format('Y/m/d H:i'),
             'attempt_id' => $attempt?->id,
+            'product_access_id' => $productAccessId,
             'score' => $attempt?->score !== null
                 ? (float) $attempt->score
                 : null,
@@ -117,8 +173,10 @@ new class extends Component
         ];
     }
 
-    public function startExam(int $examId): void
-    {
+    public function startExam(
+        int $examId,
+        ?int $productAccessId = null
+    ): void {
         $user = Auth::user();
 
         abort_unless($user instanceof User, 403);
@@ -127,17 +185,8 @@ new class extends Component
             ->whereKey($examId)
             ->firstOrFail();
 
-        if ($exam->type === ExamType::MOCK) {
-            abort_unless(
-                $exam->productAccess()
-                    ->where('user_id', $user->id)
-                    ->exists(),
-                403
-            );
-        }
-
         $attempt = app(ExamAttemptService::class)
-            ->start($exam, $user);
+            ->start($exam, $user, $productAccessId);
 
         $this->redirectRoute(
             'exam.attempts.show',

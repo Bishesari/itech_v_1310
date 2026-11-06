@@ -39,7 +39,7 @@
         @forelse ($availableExams as $exam)
 
             <div
-                wire:key="available-exam-{{ $exam['id'] }}"
+                wire:key="available-exam-{{ $exam['id'] }}-{{ $exam['product_access_id'] ?? 'internal' }}"
                 class="rounded-xl border p-5 space-y-4"
             >
 
@@ -113,7 +113,10 @@
 
                 <div class="flex justify-end">
                     <flux:button
-                        wire:click="startExam({{ $exam['id'] }})"
+                        wire:click="startExam(
+            {{ $exam['id'] }},
+            {{ $exam['product_access_id'] ?? 'null' }}
+        )"
                         variant="primary"
                         icon="play"
                     >

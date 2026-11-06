@@ -136,12 +136,13 @@ readonly class ExamResultService
 
             'is_answered' => $selectedOptionId !== null,
 
-            'is_correct' => $canReviewAnswers
+            'is_correct' => $canReviewAnswers && $selectedOptionId !== null
                 ? $question->options->contains(
-                    fn ($option) => (int) $option->id === (int) $selectedOptionId &&
+                    fn ($option) =>
+                        (int) $option->id === (int) $selectedOptionId &&
                         $option->is_correct
                 )
-                : null,
+                : ($canReviewAnswers ? false : null),
 
             'options' => $question->options->map(
                 function ($option) use (

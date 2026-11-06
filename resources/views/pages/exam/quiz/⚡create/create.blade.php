@@ -127,9 +127,7 @@
             </flux:field>
 
             @php
-                $selectedQuestionCount = $chapters
-                    ->whereIn('id', $chapter_ids)
-                    ->sum(fn ($chapter) => $chapter->questions->count());
+                $selectedQuestionCount = $chapters->whereIn('id', $chapter_ids)->sum('questions_count');
             @endphp
 
             <flux:badge color="orange" class="mt-2">

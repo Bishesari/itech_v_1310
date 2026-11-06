@@ -14,7 +14,7 @@ class Exam extends Model
 {
     protected $fillable = [
         'standard_id',
-        'product_access_id',
+        'product_id',
         'created_by',
         'title',
         'type',
@@ -43,9 +43,9 @@ class Exam extends Model
         return $this->belongsTo(Standard::class);
     }
 
-    public function productAccess(): BelongsTo
+    public function product(): BelongsTo
     {
-        return $this->belongsTo(ProductAccess::class);
+        return $this->belongsTo(Product::class);
     }
 
     public function creator(): BelongsTo

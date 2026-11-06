@@ -11,6 +11,7 @@ use App\Models\ExamAttempt;
 use App\Models\ExamAttemptQuestion;
 use App\Models\ExamQuestion;
 use App\Models\Option;
+use App\Models\ProductAccess;
 use App\Models\Question;
 use App\Models\User;
 use BackedEnum;
@@ -24,10 +25,16 @@ readonly class ExamAttemptService
         private ExamQuestionSelectionService $questionSelectionService,
     ) {}
 
-    public function start(Exam $exam, User $user): ExamAttempt
-    {
-        return DB::transaction(function () use ($exam, $user) {
-
+    public function start(
+        Exam $exam,
+        User $user,
+        ?int $productAccessId = null,
+    ): ExamAttempt {
+        return DB::transaction(function () use (
+            $exam,
+            $user,
+            $productAccessId,
+        ) {
             $lockedExam = Exam::query()
                 ->lockForUpdate()
                 ->findOrFail($exam->id);
@@ -45,34 +52,71 @@ readonly class ExamAttemptService
                 );
             }
 
-            if ($startedAt->greaterThan($lockedExam->available_until)) {
+            if (
+                $startedAt->greaterThanOrEqualTo(
+                    $lockedExam->available_until
+                )
+            ) {
                 throw new DomainException(
                     'مهلت شروع این آزمون به پایان رسیده است.'
                 );
             }
 
-            // Check previous attempt.
+            $resolvedProductAccessId = null;
 
-            $attemptExists = ExamAttempt::query()
-                ->where('exam_id', $lockedExam->id)
-                ->where('user_id', $user->id)
-                ->exists();
-
-            if ($attemptExists) {
-                throw new DomainException(
-                    'شما قبلاً در این آزمون شرکت کرده‌اید.'
-                );
-            }
-
-            // Check Mock exam ownership.
+            // Mock exam authorization.
 
             if ($lockedExam->type === ExamType::MOCK) {
-                $productAccess = $lockedExam->productAccess()
-                    ->first();
 
-                if ($productAccess === null || (int) $productAccess->user_id !== (int) $user->id) {
+                if ($productAccessId === null) {
                     throw new DomainException(
-                        'شما مجاز به شرکت در این آزمون نیستید.'
+                        'برای شرکت در آزمون آزمایشی باید نوبت خریداری‌شده را انتخاب کنید.'
+                    );
+                }
+
+                $productAccess = ProductAccess::query()
+                    ->lockForUpdate()
+                    ->find($productAccessId);
+
+                if (
+                    $productAccess === null ||
+                    (int) $productAccess->user_id !== (int) $user->id ||
+                    (int) $productAccess->product_id !== (int) $lockedExam->product_id
+                ) {
+                    throw new DomainException(
+                        'شما مجاز به استفاده از این نوبت آزمون نیستید.'
+                    );
+                }
+
+                $attemptExists = ExamAttempt::query()
+                    ->where('product_access_id', $productAccess->id)
+                    ->exists();
+
+                if ($attemptExists) {
+                    throw new DomainException(
+                        'این نوبت آزمون قبلاً استفاده شده است.'
+                    );
+                }
+
+                $resolvedProductAccessId = $productAccess->id;
+            } else {
+
+                // Internal exams must not use a purchased product access.
+
+                if ($productAccessId !== null) {
+                    throw new DomainException(
+                        'ارسال دسترسی خریداری‌شده برای این نوع آزمون مجاز نیست.'
+                    );
+                }
+
+                $attemptExists = ExamAttempt::query()
+                    ->where('exam_id', $lockedExam->id)
+                    ->where('user_id', $user->id)
+                    ->exists();
+
+                if ($attemptExists) {
+                    throw new DomainException(
+                        'شما قبلاً در این آزمون شرکت کرده‌اید.'
                     );
                 }
             }
@@ -82,6 +126,7 @@ readonly class ExamAttemptService
             $attempt = ExamAttempt::query()->create([
                 'exam_id' => $lockedExam->id,
                 'user_id' => $user->id,
+                'product_access_id' => $resolvedProductAccessId,
                 'status' => ExamAttemptStatus::IN_PROGRESS,
                 'started_at' => $startedAt,
                 'deadline_at' => $startedAt->copy()->addMinutes(
@@ -99,13 +144,13 @@ readonly class ExamAttemptService
                 $this->createSnapshotQuestions($attempt, $lockedExam);
             }
 
-            return $attempt->load('questions.options', 'questions.answer');
+            return $attempt->load(
+                'questions.options',
+                'questions.answer'
+            );
         });
     }
 
-    /**
-     * Create questions for a Quiz exam.
-     */
     private function createQuizQuestions(
         ExamAttempt $attempt,
         Exam $exam,
@@ -144,9 +189,6 @@ readonly class ExamAttemptService
         }
     }
 
-    /**
-     * Copy questions and options from the exam snapshots.
-     */
     private function createSnapshotQuestions(
         ExamAttempt $attempt,
         Exam $exam,
@@ -188,9 +230,6 @@ readonly class ExamAttemptService
         }
     }
 
-    /**
-     * Create an empty answer record for each question.
-     */
     private function createInitialAnswer(
         ExamAttemptQuestion $attemptQuestion,
     ): void {
@@ -201,9 +240,6 @@ readonly class ExamAttemptService
         ]);
     }
 
-    /**
-     * Build question snapshot.
-     */
     private function makeQuestionSnapshot(Question $question): array
     {
         return [
@@ -217,9 +253,6 @@ readonly class ExamAttemptService
         ];
     }
 
-    /**
-     * Build option snapshot.
-     */
     private function makeOptionSnapshot(Option $option): array
     {
         return [
@@ -229,9 +262,6 @@ readonly class ExamAttemptService
         ];
     }
 
-    /**
-     * Validate question count.
-     */
     private function validateQuestionCount(
         Collection $questions,
         int $expectedCount,
@@ -246,9 +276,6 @@ readonly class ExamAttemptService
         }
     }
 
-    /**
-     * Validate question options.
-     */
     private function validateOptions(Collection $options): void
     {
         if ($options->count() !== 4) {
@@ -266,9 +293,6 @@ readonly class ExamAttemptService
         }
     }
 
-    /**
-     * Resolve backed enum values.
-     */
     private function enumValue(mixed $value): mixed
     {
         return $value instanceof BackedEnum

@@ -6,9 +6,6 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         Schema::create('exam_attempts', function (Blueprint $table) {
@@ -22,27 +19,44 @@ return new class extends Migration
                 ->constrained()
                 ->restrictOnDelete();
 
+            // فقط برای تلاش‌های آزمون آزمایشی مقدار دارد.
+            $table->foreignId('product_access_id')
+                ->nullable()
+                ->constrained('product_accesses')
+                ->restrictOnDelete();
+
+            // برای آزمون‌های داخلی، شناسه کاربر را نگه می‌دارد.
+            // برای آزمون آزمایشی مقدار آن NULL خواهد بود.
+            $table->unsignedBigInteger('internal_user_id')
+                ->nullable()
+                ->virtualAs(
+                    'CASE WHEN product_access_id IS NULL THEN user_id ELSE NULL END'
+                );
+
             $table->string('status', 20)->default('in_progress');
 
-            // زمان شروع و مهلت پایان آزمون
             $table->timestamp('started_at');
             $table->timestamp('deadline_at');
             $table->timestamp('submitted_at')->nullable();
 
-            // اطلاعات تثبیت‌شده در زمان شروع آزمون
             $table->unsignedSmallInteger('question_count');
             $table->unsignedSmallInteger('duration_minutes');
 
-            // نتیجه آزمون
             $table->unsignedSmallInteger('correct_count')->nullable();
             $table->decimal('score', 5, 2)->nullable();
 
             $table->timestamps();
 
-            // هر کاربر برای هر آزمون فقط یک تلاش دارد.
+            // هر دسترسی خریداری‌شده فقط یک بار قابل استفاده است.
             $table->unique(
-                ['exam_id', 'user_id'],
-                'exam_attempts_exam_user_unique'
+                'product_access_id',
+                'exam_attempts_product_access_unique'
+            );
+
+            // هر کاربر برای هر آزمون داخلی فقط یک تلاش دارد.
+            $table->unique(
+                ['exam_id', 'internal_user_id'],
+                'exam_attempts_exam_internal_user_unique'
             );
 
             $table->index(
@@ -52,9 +66,6 @@ return new class extends Migration
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('exam_attempts');

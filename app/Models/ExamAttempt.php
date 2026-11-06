@@ -59,4 +59,8 @@ class ExamAttempt extends Model
             ExamAttemptQuestion::class
         );
     }
+    public function productAccess(): BelongsTo
+    {
+        return $this->belongsTo(ProductAccess::class);
+    }
 }

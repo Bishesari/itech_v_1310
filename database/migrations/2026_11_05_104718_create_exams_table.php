@@ -18,10 +18,10 @@ return new class extends Migration
                 ->constrained()
                 ->restrictOnDelete();
 
-            $table->foreignId('product_access_id')
+            $table->foreignId('product_id')
                 ->nullable()
-                ->unique('exams_product_access_unique')
-                ->constrained()
+                ->unique('exams_product_unique')
+                ->constrained('products')
                 ->restrictOnDelete();
 
             $table->foreignId('created_by')

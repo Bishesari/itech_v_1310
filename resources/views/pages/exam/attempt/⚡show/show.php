@@ -22,6 +22,8 @@ new class extends Component
     ): void {
         $user = Auth::user();
 
+        abort_unless($user !== null, 403);
+
         abort_unless(
             (int) $attempt->user_id === (int) $user->id,
             403
@@ -138,7 +140,7 @@ new class extends Component
 
         $this->currentQuestionIndex = min(
             $this->currentQuestionIndex + 1,
-            $this->attempt->questions->count() - 1
+            max(0, $this->attempt->questions->count() - 1)
         );
     }
 

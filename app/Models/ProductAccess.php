@@ -1,11 +1,11 @@
 <?php
+
 declare(strict_types=1);
 
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class ProductAccess extends Model
 {
@@ -36,10 +36,5 @@ class ProductAccess extends Model
     public function orderItem(): BelongsTo
     {
         return $this->belongsTo(OrderItem::class);
-    }
-
-    public function exam(): HasOne
-    {
-        return $this->hasOne(Exam::class);
     }
 }
