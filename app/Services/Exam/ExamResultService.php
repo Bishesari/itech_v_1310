@@ -138,8 +138,7 @@ readonly class ExamResultService
 
             'is_correct' => $canReviewAnswers
                 ? $question->options->contains(
-                    fn ($option) =>
-                        (int) $option->id === (int) $selectedOptionId &&
+                    fn ($option) => (int) $option->id === (int) $selectedOptionId &&
                         $option->is_correct
                 )
                 : null,

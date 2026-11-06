@@ -16,8 +16,12 @@
 
     @if ($attempt->status === \App\Enums\ExamAttemptStatus::SUBMITTED)
 
-        <div class="rounded-xl border p-6 text-center space-y-3">
-            <flux:icon name="check-circle" class="size-12 mx-auto text-green-600" />
+        <div class="rounded-xl border p-6 text-center space-y-4">
+
+            <flux:icon
+                name="check-circle"
+                class="size-12 mx-auto text-green-600"
+            />
 
             <flux:heading size="xl">
                 آزمون به پایان رسیده است
@@ -27,12 +31,13 @@
                 پاسخ‌های شما ثبت و آزمون تصحیح شده است.
             </flux:text>
 
-{{--            <flux:button--}}
-{{--                href="{{ route('exam.results.show', $attempt) }}"--}}
-{{--                variant="primary"--}}
-{{--            >--}}
+            <flux:button
+                :href="route('exam.results.show', $attempt)"
+                variant="primary"
+            >
                 مشاهده نتیجه آزمون
-{{--            </flux:button>--}}
+            </flux:button>
+
         </div>
 
     @else
