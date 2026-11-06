@@ -12,6 +12,11 @@ class PaymentAllocation extends Model
     /** @use HasFactory<PaymentAllocationFactory> */
     use HasFactory;
 
+    protected $fillable = [
+        'receivable_id',
+        'amount',
+    ];
+
     protected function casts(): array
     {
         return [

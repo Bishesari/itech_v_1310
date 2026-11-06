@@ -15,8 +15,15 @@ class PaymentTransaction extends Model
     use HasFactory;
 
     protected $fillable = [
+        'payment_method_id',
+        'financial_account_id',
+        'amount',
+        'gateway',
+        'gateway_request_id',
         'gateway_token_requested_at',
         'gateway_token',
+        'tracking_code',
+        'description',
         'status',
         'gateway_reference',
         'paid_at',

@@ -378,7 +378,13 @@ final class PaymentService
                 };
 
                 if ($receivable->status !== ReceivableStatus::CANCELLED) {
-                    $receivable->update(['status' => $status]);
+                    $receivable->update([
+                        'status' => $status,
+                    ]);
+
+                    if ($status === ReceivableStatus::PAID) {
+                        app(OrderFulfillmentService::class)->fulfill($receivable);
+                    }
                 }
             }
 
@@ -556,7 +562,13 @@ final class PaymentService
                 };
 
                 if ($receivable->status !== ReceivableStatus::CANCELLED) {
-                    $receivable->update(['status' => $status]);
+                    $receivable->update([
+                        'status' => $status,
+                    ]);
+
+                    if ($status === ReceivableStatus::PAID) {
+                        app(OrderFulfillmentService::class)->fulfill($receivable);
+                    }
                 }
             }
 

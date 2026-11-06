@@ -34,7 +34,7 @@
                         <span class="font-medium">
                             {{ __('مشاوره:') }}
                         </span>
-                        <span dir="ltr">
+                        <span dir="ltr" class="font-mono">
                             {{ __('+98 935 056 8163') }}
                         </span>
 
@@ -44,7 +44,7 @@
                         <span class="font-medium">
                             {{ __('تلفن تماس:') }}
                         </span>
-                        <span dir="ltr">
+                        <span dir="ltr" class="font-mono">
                             {{ __('+98 77 33 10 33 50') }}
                         </span>
                     </flux:text>
@@ -53,7 +53,7 @@
                         <span class="font-medium">
                             {{ __('تماس:') }}
                         </span>
-                        <span dir="ltr">
+                        <span dir="ltr" class="font-mono">
                             {{ __('+98 903 433 6111') }}
                         </span>
                     </flux:text>
@@ -84,7 +84,9 @@
                     </flux:text>
 
                     <flux:text>
-                        {{ __('فعالیت آموزشگاه از سال 1388') }}
+                        {{ __('فعالیت آموزشگاه از سال') }}
+                        <span class="font-mono">{{__('1388')}}</span>
+
                     </flux:text>
 
                     <flux:text>

@@ -15,6 +15,10 @@ class Receivable extends Model
     /** @use HasFactory<ReceivableFactory> */
     use HasFactory;
 
+    protected $fillable = [
+        'status',
+    ];
+
     protected function casts(): array
     {
         return [
