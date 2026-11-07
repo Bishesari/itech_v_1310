@@ -97,4 +97,8 @@ class User extends Authenticatable implements PasskeyUser
     {
         return $this->hasMany(AccountTransfer::class, 'created_by');
     }
+    public function productAccesses(): HasMany
+    {
+        return $this->hasMany(ProductAccess::class);
+    }
 }

@@ -10,6 +10,18 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class FinancialAccount extends Model
 {
+    protected $fillable = [
+        'name',
+        'code',
+        'type',
+        'bank_name',
+        'account_number',
+        'card_number',
+        'iban',
+        'provider',
+        'is_active',
+        'description',
+    ];
     protected function casts(): array
     {
         return [

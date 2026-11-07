@@ -16,7 +16,15 @@ class Receivable extends Model
     use HasFactory;
 
     protected $fillable = [
+        'user_id',
+        'title',
+        'amount',
+        'due_at',
+        'source_type',
+        'source_id',
         'status',
+        'description',
+        'created_by',
     ];
 
     protected function casts(): array

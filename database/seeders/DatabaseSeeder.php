@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\PaymentMethod;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
@@ -23,7 +24,8 @@ class DatabaseSeeder extends Seeder
         $this->call(RoleAssignmentSeeder::class);
         $this->call(FieldSeeder::class);
         $this->call(StandardSeeder::class);
-
+        $this->call(PaymentMethodSeeder::class);
+        $this->call(FinancialAccountSeeder::class);
 
     }
 }
